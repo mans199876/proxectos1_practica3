@@ -3,80 +3,62 @@
 #define TRIG_PIN2 5  // Pin TRIG del sensor 2
 #define ECHO_PIN2 4  // Pin ECHO del sensor 2
 #define MAX_DISTANCE 200 // Distancia máxima en cm
-#define UMBRAL_CAMBIO 10 // Cambio en cm necesario para reanudar el envío
+#define UMBRAL_CAMBIO 10 // Umbral de cambio para reanudar envío
 
-bool enviarDatos = true; // Variable de control
-int ultimaDistancia = -1; // Última distancia registrada
+bool permitirEnvio = true;
+int ultimaDistancia = -1;
 
 void setup() {
-    Serial.begin(9600);  // Comunicación con Arduino B
+    Serial.begin(9600);
 
     pinMode(TRIG_PIN1, OUTPUT);
     pinMode(ECHO_PIN1, INPUT);
     pinMode(TRIG_PIN2, OUTPUT);
     pinMode(ECHO_PIN2, INPUT);
-
-    Serial.println("Arduino A: Iniciando...");
 }
 
-// Función para medir la distancia con un sensor ultrasónico
 long medirDistancia(int trigPin, int echoPin) {
     digitalWrite(trigPin, LOW);
     delayMicroseconds(2);
     digitalWrite(trigPin, HIGH);
     delayMicroseconds(10);
     digitalWrite(trigPin, LOW);
-    
-    long duracion = pulseIn(echoPin, HIGH);
-    long distancia = duracion * 0.034 / 2; // Convertir tiempo a distancia en cm
 
-    if (distancia == 0) distancia = MAX_DISTANCE; // Evitar valores nulos
+    long duracion = pulseIn(echoPin, HIGH);
+    long distancia = duracion * 0.034 / 2;
+
+    if (distancia == 0) distancia = MAX_DISTANCE;
     return distancia;
 }
 
+int medir() {
+    int distancia1 = medirDistancia(TRIG_PIN1, ECHO_PIN1);
+    int distancia2 = medirDistancia(TRIG_PIN2, ECHO_PIN2);
+    return min(distancia1, distancia2);
+}
+
 void loop() {
-    // Verifica si hay un mensaje de Arduino B
     if (Serial.available() > 0) {
         String mensaje = Serial.readString();
-        mensaje.trim(); // Eliminar espacios o saltos de línea
+        mensaje.trim();
 
         if (mensaje == "stop") {
-            enviarDatos = false; // Detener envío de datos temporalmente
-            Serial.println("Arduino A: Envío de datos detenido.");
+            permitirEnvio = false;
         }
     }
 
-    // Medir distancias aunque el envío esté detenido
-    medir();
+    int distanciaMin = medir();
 
-    // Si la diferencia con la última distancia registrada es mayor al umbral, reanudar envío
-    if (!enviarDatos && ultimaDistancia != -1 && abs(distanciaMin - ultimaDistancia) > UMBRAL_CAMBIO) {
-        enviarDatos = true;
-        Serial.println("Arduino A: Cambio detectado, reanudando envío de datos...");
+    if (!permitirEnvio && ultimaDistancia != -1 && abs(distanciaMin - ultimaDistancia) > UMBRAL_CAMBIO) {
+        permitirEnvio = true;
     }
 
-    // Actualizar la última distancia registrada
     ultimaDistancia = distanciaMin;
 
-    // Si está activado el envío de datos, mandar la información a Arduino B
-    if (enviarDatos) enviarDatos();
+    if (permitirEnvio) {
+        Serial.println(distanciaMin); // Solo el número, sin texto
+    }
 
-    delay(500); // Pequeña pausa antes de la siguiente lectura
-}
-
-void medir()
-{
-  int distancia1 = medirDistancia(TRIG_PIN1, ECHO_PIN1);
-  int distancia2 = medirDistancia(TRIG_PIN2, ECHO_PIN2);
-  int distanciaMin = min(distancia1, distancia2);
-}
-
-void enviarDatos()
-{
-  Serial.print("Sensor detecta: ");
-  Serial.print(distanciaMin);
-  Serial.println(" cm");
-  Serial.println(distanciaMin); // Enviar solo el número para que Arduino B lo lea fácilmente
-    
+    delay(500);
 }
 
