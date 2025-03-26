@@ -1,30 +1,40 @@
-#define LED_PIN 2 // Pin donde está conectado el LED en Arduino B
+#define LED_PIN 2 // Pin del LED en Arduino B
+
+bool alertaActivada = false; // Controla si ya se ha activado el estado de alerta
 
 void setup() {
-    Serial.begin(9600); // Comunicación con Arduino A
+    Serial.begin(9600);
     pinMode(LED_PIN, OUTPUT);
     Serial.println("Arduino B: Iniciando...");
 }
 
 void loop() {
-    if (Serial.available() > 0) { // Verifica si hay datos entrantes
-        int distancia = Serial.parseInt(); // Recibe la distancia
+    if (alertaActivada) return; // Si ya se activó la alerta, salir del loop
+
+    if (Serial.available() > 0) {
+        int distancia = Serial.parseInt(); // Recibir distancia
 
         if (distancia > 0) {
-            Serial.print("Arduino B: Distancia recibida: ");
+            Serial.print("Distancia recibida: ");
             Serial.print(distancia);
             Serial.println(" cm");
 
-            if (distancia < 50) { // Si la distancia es menor a 50 cm
-                digitalWrite(LED_PIN, HIGH); // Encender LED
-                Serial.println("Arduino B: LED ENCENDIDO (Distancia < 50 cm)");
+            if (distancia < 50) {
+                digitalWrite(LED_PIN, HIGH);
+                Serial.println("(Distancia < 50 cm)");
 
-                // Enviar mensaje de stop a Arduino A
-                Serial.println("stop");
+                delay(10); // Pausa para asegurar la transmisión
+                Serial.println("stop"); // Enviar señal de detención a Arduino A
+
+                Serial.end(); // Finaliza la comunicación serial
+                alertaActivada = true; // Marca que ya se activó
             } else {
-                digitalWrite(LED_PIN, LOW); // Apagar LED
-                Serial.println("Arduino B: LED APAGADO");
+                digitalWrite(LED_PIN, LOW);
+                Serial.println("LED APAGADO");
             }
         }
+
+        // Limpia cualquier byte sobrante
+        while (Serial.available()) Serial.read();
     }
 }
